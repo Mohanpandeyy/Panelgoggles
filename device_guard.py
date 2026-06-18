@@ -33,7 +33,7 @@ from typing import Optional
 # │  PASTE YOUR VERCEL HOSTED verify-device.html URL BELOW      │
 # │  This is the URL opened in the Telegram Mini App            │
 # └─────────────────────────────────────────────────────────────┘
-VERIFY_HTML_URL = "https://verify-device.vercel.app/"
+VERIFY_HTML_URL = "https://v0-device-verifier.vercel.app/verify.html"
 
 
 # JSON storage file path — lives next to this script
