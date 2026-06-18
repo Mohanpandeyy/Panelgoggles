@@ -25,7 +25,7 @@ GROQ_MODELS     = {
     "fast": "llama-3.3-70b-versatile",
     "deep": "deepseek-r1-distill-llama-70b",
 }
-
+import guard   # ← one line, at the top, after the existing imports
 import re, asyncio, logging, sqlite3, sys, subprocess, secrets, string, json, hashlib
 from datetime import datetime, timedelta
 
