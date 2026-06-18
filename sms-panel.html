@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<title>SMS Command Center</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;600;700;900&display=swap');
+
+/* ── Reset & root ── */
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --cyan:#00fff0;
+  --green:#00ff88;
+  --red:#ff3366;
+  --amber:#ffcc00;
+  --purple:#bf00ff;
+  --bg:#05070d;
+  --card-bg:rgba(8,12,22,0.92);
+  --border:rgba(0,255,240,0.12);
+  --input-bg:rgba(0,255,240,0.03);
+  --text:#c9d1d9;
+  --text-dim:rgba(255,255,255,0.35);
+}
+
+html,body{
+  height:100%;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Share Tech Mono','Courier New',monospace;
+  overflow:hidden;
+}
+
+/* ══════════════════════════════════════
+   ANIMATED GRID SCANNER BACKGROUND
+   ══════════════════════════════════════ */
+#grid-canvas{
+  position:fixed;
+  inset:0;
+  width:100%;
+  height:100%;
+  z-index:0;
+  pointer-events:none;
+}
+
+/* Ambient glow overlay */
+.ambient{
+  position:fixed;
+  inset:0;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% -10%,rgba(0,255,240,0.07) 0%,transparent 65%),
+    radial-gradient(ellipse 50% 70% at 90% 110%,rgba(191,0,255,0.05) 0%,transparent 60%),
+    radial-gradient(ellipse 40% 40% at 10% 80%,rgba(0,255,136,0.03) 0%,transparent 60%);
+  pointer-events:none;
+  z-index:1;
+}
+
+/* Scanline overlay */
+.scanlines{
+  position:fixed;
+  inset:0;
+  background:repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,255,240,0.012) 2px,
+    rgba(0,255,240,0.012) 4px
+  );
+  pointer-events:none;
+  z-index:2;
+}
+
+/* ── Corner brackets ── */
+.corner{
+  position:fixed;
+  width:30px;height:30px;
+  border-color:var(--cyan);
+  border-style:solid;
+  opacity:0.3;
+  z-index:3;
+}
+.c-tl{top:12px;left:12px;border-width:2px 0 0 2px;}
+.c-tr{top:12px;right:12px;border-width:2px 2px 0 0;}
+.c-bl{bottom:12px;left:12px;border-width:0 0 2px 2px;}
+.c-br{bottom:12px;right:12px;border-width:0 2px 2px 0;}
+
+/* ── Screen layout ── */
+.screen{
+  position:relative;
+  z-index:10;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:20px 16px;
+  overflow-y:auto;
+}
+
+/* ── Header ticker ── */
+.ticker{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:8px;
+  letter-spacing:0.3em;
+  color:rgba(0,255,240,0.45);
+  text-transform:uppercase;
+  margin-bottom:14px;
+}
+.ticker-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--cyan);
+  animation:blink 1.3s ease-in-out infinite;
+  flex-shrink:0;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.1}}
+
+/* ── Logo ── */
+.logo{
+  font-family:'Orbitron',monospace;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:0.4em;
+  color:var(--cyan);
+  text-transform:uppercase;
+  margin-bottom:22px;
+  text-shadow:0 0 24px rgba(0,255,240,0.45);
+}
+
+/* ── Main card ── */
+.card{
+  background:var(--card-bg);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:28px 22px 24px;
+  width:100%;
+  max-width:380px;
+  position:relative;
+  overflow:hidden;
+  backdrop-filter:blur(12px);
+  box-shadow:
+    0 0 60px rgba(0,255,240,0.04),
+    0 0 1px rgba(0,255,240,0.1) inset;
+}
+
+/* Top glow line */
+.card::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent 5%,var(--cyan) 50%,transparent 95%);
+  opacity:0.35;
+}
+
+/* Bottom glow line */
+.card::after{
+  content:'';
+  position:absolute;
+  bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent 20%,rgba(0,255,240,0.2) 50%,transparent 80%);
+}
+
+/* ── Card header ── */
+.card-header{
+  text-align:center;
+  margin-bottom:24px;
+}
+
+.card-icon{
+  font-size:36px;
+  display:block;
+  margin-bottom:10px;
+  animation:float 3s ease-in-out infinite;
+}
+@keyframes float{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-4px)}
+}
+
+.card-title{
+  font-family:'Orbitron',monospace;
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:0.22em;
+  color:var(--cyan);
+  text-transform:uppercase;
+  text-shadow:0 0 16px rgba(0,255,240,0.4);
+  margin-bottom:4px;
+}
+
+.card-sub{
+  font-size:9px;
+  letter-spacing:0.14em;
+  color:var(--text-dim);
+  text-transform:uppercase;
+}
+
+/* ── Divider ── */
+.divider{
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(0,255,240,0.15),transparent);
+  margin:0 0 20px;
+}
+
+/* ── Field groups ── */
+.field-group{
+  margin-bottom:16px;
+}
+
+.field-label{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-size:9px;
+  letter-spacing:0.2em;
+  color:rgba(0,255,240,0.5);
+  text-transform:uppercase;
+  margin-bottom:7px;
+}
+
+.field-label-icon{
+  font-size:11px;
+  line-height:1;
+}
+
+/* ── Input & Textarea ── */
+input[type="text"],
+input[type="tel"],
+textarea{
+  width:100%;
+  background:var(--input-bg);
+  border:1px solid rgba(0,255,240,0.14);
+  border-radius:4px;
+  padding:11px 13px;
+  color:var(--text);
+  font-family:'Share Tech Mono','Courier New',monospace;
+  font-size:12px;
+  letter-spacing:0.04em;
+  outline:none;
+  transition:border-color 0.25s,box-shadow 0.25s,background 0.25s;
+  resize:none;
+}
+
+input[type="text"]::placeholder,
+input[type="tel"]::placeholder,
+textarea::placeholder{
+  color:rgba(255,255,255,0.18);
+  letter-spacing:0.04em;
+}
+
+input[type="text"]:focus,
+input[type="tel"]:focus,
+textarea:focus{
+  border-color:rgba(0,255,240,0.4);
+  background:rgba(0,255,240,0.05);
+  box-shadow:0 0 0 1px rgba(0,255,240,0.12),0 0 18px rgba(0,255,240,0.06);
+}
+
+input[type="text"].error,
+input[type="tel"].error,
+textarea.error{
+  border-color:rgba(255,51,102,0.5);
+  box-shadow:0 0 0 1px rgba(255,51,102,0.2);
+}
+
+textarea{
+  min-height:90px;
+  line-height:1.55;
+}
+
+/* ── Character counter ── */
+.char-counter{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:5px;
+  font-size:9px;
+  letter-spacing:0.08em;
+  color:var(--text-dim);
+}
+.char-counter.warn{color:var(--amber);}
+.char-counter.over{color:var(--red);}
+
+/* ── Priority selector ── */
+.priority-row{
+  display:flex;
+  gap:8px;
+  margin-bottom:16px;
+}
+
+.priority-btn{
+  flex:1;
+  padding:8px 6px;
+  border-radius:4px;
+  border:1px solid rgba(255,255,255,0.1);
+  background:rgba(255,255,255,0.02);
+  color:rgba(255,255,255,0.3);
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  cursor:pointer;
+  transition:all 0.2s;
+  text-align:center;
+}
+.priority-btn.active-normal{
+  border-color:rgba(0,255,136,0.4);
+  background:rgba(0,255,136,0.06);
+  color:var(--green);
+  box-shadow:0 0 10px rgba(0,255,136,0.08);
+}
+.priority-btn.active-urgent{
+  border-color:rgba(255,51,102,0.4);
+  background:rgba(255,51,102,0.06);
+  color:var(--red);
+  box-shadow:0 0 10px rgba(255,51,102,0.08);
+}
+.priority-btn.active-scheduled{
+  border-color:rgba(255,204,0,0.4);
+  background:rgba(255,204,0,0.05);
+  color:var(--amber);
+}
+
+/* ── Transmit button ── */
+.btn-transmit{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  width:100%;
+  padding:14px 20px;
+  border-radius:5px;
+  border:1px solid rgba(0,255,240,0.3);
+  background:linear-gradient(135deg,rgba(0,255,240,0.08),rgba(0,255,240,0.04));
+  color:var(--cyan);
+  font-family:'Orbitron',monospace;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:0.25em;
+  text-transform:uppercase;
+  cursor:pointer;
+  transition:all 0.22s;
+  position:relative;
+  overflow:hidden;
+  margin-top:6px;
+}
+
+.btn-transmit::before{
+  content:'';
+  position:absolute;
+  top:-100%;left:-100%;
+  width:300%;height:300%;
+  background:conic-gradient(transparent 0deg,rgba(0,255,240,0.04) 60deg,transparent 120deg);
+  animation:rotate-bg 4s linear infinite;
+  pointer-events:none;
+}
+@keyframes rotate-bg{to{transform:rotate(360deg)}}
+
+.btn-transmit:hover:not(:disabled){
+  border-color:rgba(0,255,240,0.55);
+  background:linear-gradient(135deg,rgba(0,255,240,0.14),rgba(0,255,240,0.07));
+  box-shadow:0 0 28px rgba(0,255,240,0.12),0 0 8px rgba(0,255,240,0.06) inset;
+  transform:translateY(-1px);
+}
+
+.btn-transmit:active:not(:disabled){
+  transform:translateY(0);
+  box-shadow:none;
+}
+
+.btn-transmit:disabled{
+  opacity:0.4;
+  cursor:not-allowed;
+}
+
+.btn-transmit.sending{
+  border-color:rgba(255,204,0,0.4);
+  color:var(--amber);
+  animation:pulse-btn 0.8s ease-in-out infinite;
+}
+@keyframes pulse-btn{0%,100%{opacity:1}50%{opacity:0.65}}
+
+.btn-transmit.success{
+  border-color:rgba(0,255,136,0.5);
+  color:var(--green);
+  background:rgba(0,255,136,0.07);
+}
+
+.transmit-icon{font-size:16px;line-height:1;}
+
+/* ── Status alert ── */
+.status-alert{
+  margin-top:14px;
+  padding:10px 13px;
+  border-radius:4px;
+  font-size:10px;
+  letter-spacing:0.1em;
+  line-height:1.6;
+  display:none;
+}
+.status-alert.show{display:block;}
+.status-alert.ok{
+  background:rgba(0,255,136,0.06);
+  border:1px solid rgba(0,255,136,0.22);
+  color:var(--green);
+}
+.status-alert.err{
+  background:rgba(255,51,102,0.06);
+  border:1px solid rgba(255,51,102,0.2);
+  color:var(--red);
+}
+.status-alert.info{
+  background:rgba(0,255,240,0.04);
+  border:1px solid rgba(0,255,240,0.15);
+  color:rgba(0,255,240,0.7);
+}
+
+/* ── Footer ── */
+.footer{
+  margin-top:14px;
+  font-size:8px;
+  letter-spacing:0.2em;
+  color:rgba(255,255,255,0.15);
+  text-align:center;
+  text-transform:uppercase;
+}
+
+/* ── Error text ── */
+.field-error{
+  font-size:9px;
+  color:var(--red);
+  letter-spacing:0.08em;
+  margin-top:5px;
+  display:none;
+}
+.field-error.show{display:block;}
+</style>
+</head>
+<body>
+
+<!-- Grid canvas drawn by JS -->
+<canvas id="grid-canvas"></canvas>
+
+<!-- Overlays -->
+<div class="ambient"></div>
+<div class="scanlines"></div>
+
+<!-- Corner brackets -->
+<div class="corner c-tl"></div>
+<div class="corner c-tr"></div>
+<div class="corner c-bl"></div>
+<div class="corner c-br"></div>
+
+<!-- Main layout -->
+<div class="screen">
+
+  <div class="ticker">
+    <div class="ticker-dot"></div>
+    SMS RELAY OPS // COMMAND LINK ACTIVE
+  </div>
+
+  <div class="logo">SECURE RELAY NETWORK</div>
+
+  <div class="card" id="card">
+
+    <!-- Card header -->
+    <div class="card-header">
+      <span class="card-icon">📲</span>
+      <div class="card-title">SMS Command Center</div>
+      <div class="card-sub">Encrypted · Direct Relay · Authorized Only</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Target phone number -->
+    <div class="field-group">
+      <div class="field-label">
+        <span class="field-label-icon">📡</span>
+        Target Number
+      </div>
+      <input
+        type="tel"
+        id="inp-phone"
+        placeholder="+1 234 567 8900"
+        autocomplete="tel"
+        inputmode="tel"
+        maxlength="20"
+      />
+      <div class="field-error" id="err-phone">Enter a valid phone number (e.g. +1234567890)</div>
+    </div>
+
+    <!-- Sender ID (optional) -->
+    <div class="field-group">
+      <div class="field-label">
+        <span class="field-label-icon">🪪</span>
+        Sender ID <span style="color:rgba(255,255,255,0.2);margin-left:6px;font-size:8px">OPTIONAL</span>
+      </div>
+      <input
+        type="text"
+        id="inp-sender"
+        placeholder="RELAY / leave blank for default"
+        maxlength="11"
+      />
+    </div>
+
+    <!-- Message payload -->
+    <div class="field-group">
+      <div class="field-label">
+        <span class="field-label-icon">⚡</span>
+        Message Payload
+      </div>
+      <textarea
+        id="inp-message"
+        placeholder="Enter your message payload here..."
+        maxlength="160"
+        rows="4"
+      ></textarea>
+      <div class="char-counter" id="char-counter">0 / 160</div>
+      <div class="field-error" id="err-message">Message payload cannot be empty</div>
+    </div>
+
+    <!-- Priority selector -->
+    <div class="field-group">
+      <div class="field-label">
+        <span class="field-label-icon">🎯</span>
+        Priority Level
+      </div>
+      <div class="priority-row">
+        <button class="priority-btn active-normal" data-priority="NORMAL" onclick="setPriority(this)">⬤ Normal</button>
+        <button class="priority-btn" data-priority="URGENT" onclick="setPriority(this)">⚡ Urgent</button>
+        <button class="priority-btn" data-priority="SCHEDULED" onclick="setPriority(this)">⏱ Sched</button>
+      </div>
+    </div>
+
+    <!-- Transmit button -->
+    <button class="btn-transmit" id="btn-transmit" onclick="transmitSMS()">
+      <span class="transmit-icon">🛰</span>
+      <span id="btn-label">Transmit SMS</span>
+    </button>
+
+    <!-- Status feedback -->
+    <div class="status-alert" id="status-alert"></div>
+
+  </div>
+
+  <div class="footer">SMS Relay Ops · Secure Command Interface · v2.0</div>
+
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════
+//   CONFIGURATION
+//   Add your bot username and any webhook URL here
+// ════════════════════════════════════════════════════════
+const BOT_USERNAME   = 'YOUR_BOT_USERNAME_HERE';    // ← e.g. 'MySMSBot'
+const WEBHOOK_URL    = '';                           // ← Optional: if you have a relay endpoint,
+                                                     //   paste it here. Leave '' to use sendData only.
+// ════════════════════════════════════════════════════════
+
+// ── Telegram WebApp init ────────────────────────────────
+const tg = window.Telegram?.WebApp;
+if (tg) {
+  tg.ready();
+  tg.expand();
+  // Theme the main button if present
+  tg.MainButton?.hide();
+}
+
+const telegramId  = tg?.initDataUnsafe?.user?.id?.toString() || 'demo';
+const firstName   = tg?.initDataUnsafe?.user?.first_name || 'Operator';
+
+// ── Grid scanner background ─────────────────────────────
+(function initGrid() {
+  const canvas = document.getElementById('grid-canvas');
+  const ctx    = canvas.getContext('2d');
+
+  const CELL   = 38;          // grid cell size px
+  const SPEED  = 0.45;        // scanner beam speed (px/frame)
+
+  let W, H, cols, rows;
+  let scanY = 0;              // vertical scanner position
+  let time  = 0;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    cols = Math.ceil(W / CELL) + 1;
+    rows = Math.ceil(H / CELL) + 1;
+  }
+
+  function hexToRgba(hex, a) {
+    const r = parseInt(hex.slice(1,3),16);
+    const g = parseInt(hex.slice(3,5),16);
+    const b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  // Dots at grid intersections
+  function drawDots() {
+    for (let c = 0; c <= cols; c++) {
+      for (let r = 0; r <= rows; r++) {
+        const x = c * CELL;
+        const y = r * CELL;
+        // distance from scanner beam
+        const dist = Math.abs(y - scanY);
+        let alpha = 0.06;
+        if (dist < CELL * 2) {
+          alpha = 0.06 + 0.35 * (1 - dist / (CELL * 2));
+        }
+        ctx.beginPath();
+        ctx.arc(x, y, 1, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0,255,240,${alpha})`;
+        ctx.fill();
+      }
+    }
+  }
+
+  // Grid lines
+  function drawGrid() {
+    // Vertical lines
+    for (let c = 0; c <= cols; c++) {
+      const x = c * CELL;
+      const grad = ctx.createLinearGradient(x, 0, x, H);
+      grad.addColorStop(0,   'rgba(0,255,240,0)');
+      grad.addColorStop(0.5, 'rgba(0,255,240,0.04)');
+      grad.addColorStop(1,   'rgba(0,255,240,0)');
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+    // Horizontal lines
+    for (let r = 0; r <= rows; r++) {
+      const y = r * CELL;
+      const dist = Math.abs(y - scanY);
+      let alpha = 0.04;
+      if (dist < CELL * 3) {
+        alpha = 0.04 + 0.18 * (1 - dist / (CELL * 3));
+      }
+      ctx.beginPath();
+      ctx.moveTo(0,  y);
+      ctx.lineTo(W,  y);
+      ctx.strokeStyle = `rgba(0,255,240,${alpha})`;
+      ctx.lineWidth   = 0.5;
+      ctx.stroke();
+    }
+  }
+
+  // Main scanner beam
+  function drawScanner() {
+    // Core beam line
+    const beamGrad = ctx.createLinearGradient(0, scanY - 2, 0, scanY + 2);
+    beamGrad.addColorStop(0,   'rgba(0,255,240,0)');
+    beamGrad.addColorStop(0.5, 'rgba(0,255,240,0.85)');
+    beamGrad.addColorStop(1,   'rgba(0,255,240,0)');
+    ctx.beginPath();
+    ctx.moveTo(0,  scanY);
+    ctx.lineTo(W,  scanY);
+    ctx.strokeStyle = beamGrad;
+    ctx.lineWidth   = 1.5;
+    ctx.stroke();
+
+    // Glow halo
+    const haloGrad = ctx.createLinearGradient(0, scanY - 40, 0, scanY + 40);
+    haloGrad.addColorStop(0,   'rgba(0,255,240,0)');
+    haloGrad.addColorStop(0.5, 'rgba(0,255,240,0.06)');
+    haloGrad.addColorStop(1,   'rgba(0,255,240,0)');
+    ctx.fillStyle = haloGrad;
+    ctx.fillRect(0, scanY - 40, W, 80);
+  }
+
+  // Glitchy data column — subtle random brightness on grid cells near scanner
+  function drawGlitchPixels() {
+    if (Math.random() > 0.35) return;
+    for (let i = 0; i < 4; i++) {
+      const x = Math.floor(Math.random() * cols) * CELL;
+      const y = scanY + (Math.random() - 0.5) * CELL * 2;
+      const w = CELL * (0.2 + Math.random() * 0.5);
+      ctx.fillStyle = `rgba(0,255,240,${0.02 + Math.random() * 0.05})`;
+      ctx.fillRect(x, y - 1, w, 2);
+    }
+  }
+
+  // Floating data blips along beam
+  function drawBlips() {
+    const count = 3;
+    for (let i = 0; i < count; i++) {
+      const phase = (time * 0.8 + i * 120) % W;
+      ctx.beginPath();
+      ctx.arc(phase, scanY, 2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,255,240,0.7)';
+      ctx.fill();
+      // tail
+      ctx.beginPath();
+      ctx.moveTo(phase, scanY);
+      ctx.lineTo(phase - 20, scanY);
+      const tailGrad = ctx.createLinearGradient(phase - 20, scanY, phase, scanY);
+      tailGrad.addColorStop(0, 'rgba(0,255,240,0)');
+      tailGrad.addColorStop(1, 'rgba(0,255,240,0.5)');
+      ctx.strokeStyle = tailGrad;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+    time += 1;
+
+    // Advance scanner
+    scanY += SPEED;
+    if (scanY > H + 20) scanY = -20;
+
+    drawGrid();
+    drawDots();
+    drawScanner();
+    drawGlitchPixels();
+    drawBlips();
+
+    requestAnimationFrame(frame);
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+  requestAnimationFrame(frame);
+})();
+
+// ── Priority selection ──────────────────────────────────
+let currentPriority = 'NORMAL';
+
+function setPriority(btn) {
+  document.querySelectorAll('.priority-btn').forEach(b => {
+    b.className = 'priority-btn';
+  });
+  const p = btn.dataset.priority;
+  currentPriority = p;
+  if (p === 'NORMAL')     btn.className = 'priority-btn active-normal';
+  if (p === 'URGENT')     btn.className = 'priority-btn active-urgent';
+  if (p === 'SCHEDULED')  btn.className = 'priority-btn active-scheduled';
+}
+
+// ── Character counter ───────────────────────────────────
+const msgEl      = document.getElementById('inp-message');
+const counterEl  = document.getElementById('char-counter');
+
+msgEl.addEventListener('input', () => {
+  const len = msgEl.value.length;
+  counterEl.textContent = `${len} / 160`;
+  counterEl.className = 'char-counter' + (len > 140 ? (len >= 160 ? ' over' : ' warn') : '');
+});
+
+// ── Validation ──────────────────────────────────────────
+function validatePhone(v) {
+  return /^\+?[0-9\s\-().]{7,20}$/.test(v.trim());
+}
+
+function showFieldError(id, show) {
+  const el = document.getElementById(id);
+  if (el) el.className = 'field-error' + (show ? ' show' : '');
+}
+
+function markField(id, error) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (error) el.classList.add('error');
+  else       el.classList.remove('error');
+}
+
+function showAlert(type, msg) {
+  const el = document.getElementById('status-alert');
+  el.className = 'status-alert show ' + type;
+  el.textContent = msg;
+}
+
+function hideAlert() {
+  document.getElementById('status-alert').className = 'status-alert';
+}
+
+// ── Transmit via Telegram sendData ─────────────────────
+//   This sends data DIRECTLY to your bot as a web_app_data update.
+//   No API server needed. Your bot must handle the `web_app_data` update.
+//
+//   In your Python bot, add this handler:
+//   ─────────────────────────────────────
+//   @dp.message(F.web_app_data)
+//   async def handle_sms_command(message: Message):
+//       import json
+//       data = json.loads(message.web_app_data.data)
+//       phone    = data['phone']
+//       msg_text = data['message']
+//       sender   = data.get('sender', '')
+//       priority = data.get('priority', 'NORMAL')
+//       # ... your SMS sending logic here
+//   ─────────────────────────────────────
+
+async function transmitSMS() {
+  hideAlert();
+
+  const phone   = document.getElementById('inp-phone').value.trim();
+  const sender  = document.getElementById('inp-sender').value.trim();
+  const message = msgEl.value.trim();
+
+  // Validate
+  let hasError = false;
+
+  if (!validatePhone(phone)) {
+    markField('inp-phone', true);
+    showFieldError('err-phone', true);
+    hasError = true;
+  } else {
+    markField('inp-phone', false);
+    showFieldError('err-phone', false);
+  }
+
+  if (!message) {
+    markField('inp-message', true);
+    showFieldError('err-message', true);
+    hasError = true;
+  } else {
+    markField('inp-message', false);
+    showFieldError('err-message', false);
+  }
+
+  if (hasError) return;
+
+  // Build payload
+  const payload = {
+    action:   'send_sms',
+    phone:    phone,
+    message:  message,
+    sender:   sender || null,
+    priority: currentPriority,
+    operator: telegramId,
+    ts:       Date.now()
+  };
+
+  // Set button to sending state
+  const btn = document.getElementById('btn-transmit');
+  const lbl = document.getElementById('btn-label');
+  btn.disabled = true;
+  btn.className = 'btn-transmit sending';
+  lbl.textContent = 'Transmitting...';
+
+  try {
+    // ── Primary: send via Telegram WebApp.sendData (direct to bot) ──
+    if (tg?.sendData) {
+      tg.sendData(JSON.stringify(payload));
+      // sendData closes the WebApp automatically — nothing more needed.
+      // If we reach here it means we're in a non-Mini-App context (testing):
+    }
+
+    // ── Fallback: if a WEBHOOK_URL is configured, POST there ──
+    if (WEBHOOK_URL) {
+      const res = await fetch(WEBHOOK_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('Relay server returned ' + res.status);
+    }
+
+    // ── Success UI (reached only outside real Telegram, e.g. browser preview) ──
+    btn.className = 'btn-transmit success';
+    lbl.textContent = '✓ Transmitted';
+    showAlert('ok', `SMS queued → ${phone} · Priority: ${currentPriority} · Relay confirmed.`);
+
+    // Reset after delay
+    setTimeout(() => {
+      btn.disabled  = false;
+      btn.className = 'btn-transmit';
+      lbl.textContent = 'Transmit SMS';
+      document.getElementById('inp-phone').value   = '';
+      document.getElementById('inp-sender').value  = '';
+      msgEl.value = '';
+      counterEl.textContent = '0 / 160';
+      counterEl.className   = 'char-counter';
+      hideAlert();
+    }, 3200);
+
+  } catch (err) {
+    btn.disabled  = false;
+    btn.className = 'btn-transmit';
+    lbl.textContent = 'Transmit SMS';
+    showAlert('err', 'Relay failed: ' + (err.message || 'unknown error. Check connection.'));
+  }
+}
+</script>
+</body>
+</html>
