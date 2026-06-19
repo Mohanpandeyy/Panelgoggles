@@ -19,7 +19,7 @@
 # ───────────────────────────────────────────────────────────────
 
 # ── Configuration — fill these in ─────────────────────────────
-GUARD_BOT_TOKEN  = "7937813835:AAGEs-FhwL9ckg4Zr2FINcOEX4pwu2SpWGI"   # same token as office_relay.py BOT_TOKEN
+GUARD_BOT_TOKEN  = "8908948438:AAE1fRjlrsl8cGRJYjne8a5-c1AEJbZPNb4"   # same token as office_relay.py BOT_TOKEN
 GUARD_WEBAPP_URL = "https://verify2345.vercel.app/"   # full HTTPS URL to verify.html on Vercel
 GUARD_DB_PATH    = "guard.db"
 RELAY_DB_PATH    = "office_relay.db"
