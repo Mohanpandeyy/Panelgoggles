@@ -256,7 +256,7 @@ log.info("[sms_patch] Patched _check_watchlist ✓")
 
 _orig_fmt_device_detail = relay.fmt_device_detail
 
-def _patched_fmt_device_detail(num, msgs, **kwargs):
+def _patched_fmt_device_detail(num, msgs, *args, **kwargs
     safe = []
     for m in (msgs or []):
         s = dict(m)
@@ -264,7 +264,7 @@ def _patched_fmt_device_detail(num, msgs, **kwargs):
         if s.get("sender"):  s["sender"]  = _h(s["sender"])
         if s.get("otp"):     s["otp"]     = _h(s["otp"])
         safe.append(s)
-    return _orig_fmt_device_detail(num, safe, **kwargs)
+    return _orig_fmt_device_detail(num, safe, *args, **kwargs)
 
 relay.fmt_device_detail = _patched_fmt_device_detail
 log.info("[sms_patch] Patched fmt_device_detail ✓")
