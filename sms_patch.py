@@ -256,7 +256,7 @@ log.info("[sms_patch] Patched _check_watchlist ✓")
 
 _orig_fmt_device_detail = relay.fmt_device_detail
 
-def _patched_fmt_device_detail(num, msgs, *args, **kwargs
+def _patched_fmt_device_detail(num, msgs, *args, **kwargs):
     safe = []
     for m in (msgs or []):
         s = dict(m)
