@@ -12,7 +12,7 @@ KEY_PREFIX      = "RELAY-"
 KEY_LENGTH      = 30
 RESYNC_INTERVAL = 600    # seconds (10 min)
 PAGE_SIZE       = 15     # numbers per page
-MAX_FB_SOURCES  = 20     # hard limit on Firebase sources
+MAX_FB_SOURCES  = 1000    # hard limit on Firebase sources
 
 GROQ_BASE_URL   = "https://api.groq.com/openai/v1"
 ANTHROPIC_BASE  = "https://api.anthropic.com/v1"
