@@ -6,7 +6,7 @@
 #             Groq AI Config via Telegram · No Flask / No HTML panel
 # ╚══════════════════════════════════════════════════════════════╝
 
-BOT_TOKEN       = "8908948438:AAE1fRjlrsl8cGRJYjne8a5-c1AEJbZPNb4"
+BOT_TOKEN       = "8908948438:AAG7Yw8yB8_qnzMfSUI3Ko8soEikksG-uag"
 ADMIN_IDS       = [6013007573]
 KEY_PREFIX      = "RELAY-"
 KEY_LENGTH      = 30
