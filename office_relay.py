@@ -28,7 +28,9 @@ GROQ_MODELS     = {
 import guard   # ← one line, at the top, after the existing imports
 import re, asyncio, logging, sqlite3, sys, subprocess, secrets, string, json, hashlib
 from datetime import datetime, timedelta
+import fb_parser
 import fb_parser_fixes
+fb_parser_fixes.apply(fb_parser)
 # ── Indian Standard Time (UTC+5:30) ────────────────────────────────────────
 _IST = timedelta(hours=5, minutes=30)
 
