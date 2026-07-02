@@ -7,7 +7,7 @@
 # ╚══════════════════════════════════════════════════════════════╝
 
 import os as _os
-BOT_TOKEN       = "8855014153:AAGAhah4FGVnacQpJcT_j9co6B9LyOBy1hU"
+BOT_TOKEN       = "8908948438:AAG4GTi72wwbDveowSUY0GVDbMo8YBtecRY"
 ADMIN_IDS       = [6013007573]
 KEY_PREFIX      = "RELAY-"
 KEY_LENGTH      = 30
