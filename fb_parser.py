@@ -30,9 +30,9 @@ except ImportError:
 
 GROQ_API_KEY   = os.environ.get("GROQ_API_KEY", "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")
 ANTHROPIC_KEY  = os.environ.get("ANTHROPIC_API_KEY", "")
-BOT_TOKEN      = os.environ.get("TG_BOT_TOKEN", "")
+BOT_TOKEN      = os.environ.get("8810790307:AAGqonI2c8ktLz2e8fjKhaHyaO2u6oY394g", "")
 ADMIN_IDS      = [
-    int(x) for x in os.environ.get("TG_ADMIN_IDS", "").split(",")
+    int(x) for x in os.environ.get("7238420477", "").split(",")
     if x.strip().isdigit()
 ]
 
